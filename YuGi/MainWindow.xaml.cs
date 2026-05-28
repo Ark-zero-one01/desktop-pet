@@ -225,38 +225,136 @@ namespace DesktopPet
         {
             try
             {
-                // 获取所有正在运行的进程
-                var processes = Process.GetProcesses()
-                    .Where(p => !string.IsNullOrEmpty(p.MainWindowTitle)) // 只显示有窗口标题的进程
-                    .OrderBy(p => p.ProcessName)
-                    .Take(20) // 限制显示前20个
-                    .ToList();
-
-                StringBuilder sb = new StringBuilder();
-                sb.AppendLine("🖥️ 当前运行的程序：");
-                sb.AppendLine();
-
-                foreach (var process in processes)
+                // 创建进程管理窗口
+                var processWindow = new Window
                 {
-                    try
-                    {
-                        sb.AppendLine($"📌 {process.ProcessName}");
-                        sb.AppendLine($"   窗口: {process.MainWindowTitle}");
-                        sb.AppendLine($"   内存: {process.WorkingSet64 / 1024 / 1024} MB");
-                        sb.AppendLine();
-                    }
-                    catch
-                    {
-                        // 某些进程可能无法访问，跳过
-                    }
-                }
+                    Title = "进程管理器",
+                    Width = 600,
+                    Height = 500,
+                    WindowStartupLocation = WindowStartupLocation.CenterScreen,
+                    ResizeMode = ResizeMode.CanResize
+                };
 
-                if (processes.Count == 0)
+                var mainPanel = new System.Windows.Controls.DockPanel();
+
+                // 顶部说明
+                var headerLabel = new System.Windows.Controls.Label
                 {
-                    sb.AppendLine("未找到有窗口的运行程序");
-                }
+                    Content = "🖥️ 当前运行的程序（双击进程名可以关闭）",
+                    FontWeight = FontWeights.Bold,
+                    FontSize = 14,
+                    Padding = new Thickness(10)
+                };
+                System.Windows.Controls.DockPanel.SetDock(headerLabel, System.Windows.Controls.Dock.Top);
 
-                System.Windows.MessageBox.Show(sb.ToString(), "后台运行程序", MessageBoxButton.OK, MessageBoxImage.Information);
+                // 底部按钮
+                var buttonPanel = new System.Windows.Controls.StackPanel
+                {
+                    Orientation = System.Windows.Controls.Orientation.Horizontal,
+                    Margin = new Thickness(10)
+                };
+                buttonPanel.SetValue(System.Windows.FrameworkElement.HorizontalAlignmentProperty, System.Windows.HorizontalAlignment.Right);
+                System.Windows.Controls.DockPanel.SetDock(buttonPanel, System.Windows.Controls.Dock.Bottom);
+
+                var refreshButton = new System.Windows.Controls.Button
+                {
+                    Content = "刷新",
+                    Width = 80,
+                    Height = 30,
+                    Margin = new Thickness(5)
+                };
+
+                var closeButton = new System.Windows.Controls.Button
+                {
+                    Content = "关闭",
+                    Width = 80,
+                    Height = 30,
+                    Margin = new Thickness(5)
+                };
+                closeButton.Click += (s, e) => processWindow.Close();
+
+                buttonPanel.Children.Add(refreshButton);
+                buttonPanel.Children.Add(closeButton);
+
+                // 中间列表
+                var listBox = new System.Windows.Controls.ListBox
+                {
+                    Margin = new Thickness(10)
+                };
+
+                // 加载进程列表
+                Action loadProcesses = null!;
+                loadProcesses = () =>
+                {
+                    listBox.Items.Clear();
+                    var processes = Process.GetProcesses()
+                        .Where(p => !string.IsNullOrEmpty(p.MainWindowTitle))
+                        .OrderBy(p => p.ProcessName)
+                        .ToList();
+
+                    foreach (var process in processes)
+                    {
+                        try
+                        {
+                            var item = new System.Windows.Controls.ListBoxItem
+                            {
+                                Content = $"📌 {process.ProcessName} - {process.MainWindowTitle} ({process.WorkingSet64 / 1024 / 1024} MB)",
+                                Tag = process.Id,
+                                Padding = new Thickness(5)
+                            };
+
+                            // 双击关闭进程
+                            item.MouseDoubleClick += (s, e) =>
+                            {
+                                var result = System.Windows.MessageBox.Show(
+                                    $"确定要关闭进程 '{process.ProcessName}' 吗？\n\n警告：强制关闭进程可能导致数据丢失！",
+                                    "确认关闭",
+                                    MessageBoxButton.YesNo,
+                                    MessageBoxImage.Warning);
+
+                                if (result == MessageBoxResult.Yes)
+                                {
+                                    try
+                                    {
+                                        var proc = Process.GetProcessById((int)item.Tag);
+                                        proc.Kill();
+                                        System.Windows.MessageBox.Show($"进程 '{process.ProcessName}' 已关闭", "成功", MessageBoxButton.OK, MessageBoxImage.Information);
+                                        loadProcesses(); // 刷新列表
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        System.Windows.MessageBox.Show($"无法关闭进程：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                                    }
+                                }
+                            };
+
+                            listBox.Items.Add(item);
+                        }
+                        catch
+                        {
+                            // 某些进程可能无法访问，跳过
+                        }
+                    }
+
+                    if (listBox.Items.Count == 0)
+                    {
+                        listBox.Items.Add(new System.Windows.Controls.ListBoxItem
+                        {
+                            Content = "未找到有窗口的运行程序",
+                            IsEnabled = false
+                        });
+                    }
+                };
+
+                loadProcesses();
+                refreshButton.Click += (s, e) => loadProcesses();
+
+                mainPanel.Children.Add(headerLabel);
+                mainPanel.Children.Add(buttonPanel);
+                mainPanel.Children.Add(listBox);
+
+                processWindow.Content = mainPanel;
+                processWindow.ShowDialog();
             }
             catch (Exception ex)
             {
@@ -309,6 +407,58 @@ namespace DesktopPet
             {
                 System.Windows.MessageBox.Show($"菜单显示失败：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
             }
+        }
+
+        // 开机自启动相关方法
+        private void SetAutoStart(bool enable)
+        {
+            try
+            {
+                string appName = "YuGiDesktopPet";
+                string exePath = System.Reflection.Assembly.GetExecutingAssembly().Location.Replace(".dll", ".exe");
+                
+                using (var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", true))
+                {
+                    if (key != null)
+                    {
+                        if (enable)
+                        {
+                            key.SetValue(appName, $"\"{exePath}\"");
+                        }
+                        else
+                        {
+                            if (key.GetValue(appName) != null)
+                            {
+                                key.DeleteValue(appName);
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Windows.MessageBox.Show($"设置开机自启动失败：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private bool IsAutoStartEnabled()
+        {
+            try
+            {
+                string appName = "YuGiDesktopPet";
+                using (var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", false))
+                {
+                    if (key != null)
+                    {
+                        return key.GetValue(appName) != null;
+                    }
+                }
+            }
+            catch
+            {
+                // 忽略错误
+            }
+            return false;
         }
 
         private void ShowSettingsDialog()
@@ -399,6 +549,14 @@ namespace DesktopPet
                     randomMaxLabel.Content = $"随机移动最大时间: {(int)randomMaxSlider.Value} 秒";
                 };
 
+                // 开机自启动设置
+                var autoStartCheckBox = new System.Windows.Controls.CheckBox
+                {
+                    Content = "开机自动启动",
+                    IsChecked = IsAutoStartEnabled(),
+                    Margin = new Thickness(0, 5, 0, 5)
+                };
+
                 // 按钮面板
                 var buttonPanel = new System.Windows.Controls.StackPanel
                 {
@@ -420,6 +578,12 @@ namespace DesktopPet
                     config.InitialMoveDuration = (int)initialSpeedSlider.Value;
                     config.RandomMoveDurationMin = (int)randomMinSlider.Value;
                     config.RandomMoveDurationMax = (int)randomMaxSlider.Value;
+                    
+                    // 保存开机自启动设置
+                    bool autoStartEnabled = autoStartCheckBox.IsChecked == true;
+                    config.AutoStart = autoStartEnabled;
+                    SetAutoStart(autoStartEnabled);
+                    
                     config.Save();
 
                     // 更新动画定时器
@@ -462,6 +626,13 @@ namespace DesktopPet
                 stackPanel.Children.Add(randomMaxLabel);
                 stackPanel.Children.Add(randomMaxSlider);
                 stackPanel.Children.Add(new System.Windows.Controls.Label { Content = "提示: 每次随机移动的持续时间范围", FontSize = 10, Foreground = System.Windows.Media.Brushes.Gray });
+
+                stackPanel.Children.Add(new System.Windows.Controls.Separator { Margin = new Thickness(0, 15, 0, 15) });
+
+                // 开机自启动设置
+                stackPanel.Children.Add(new System.Windows.Controls.Label { Content = "🔧 系统设置", FontWeight = FontWeights.Bold, FontSize = 14 });
+                stackPanel.Children.Add(autoStartCheckBox);
+                stackPanel.Children.Add(new System.Windows.Controls.Label { Content = "提示: 勾选后程序将在 Windows 启动时自动运行", FontSize = 10, Foreground = System.Windows.Media.Brushes.Gray });
 
                 stackPanel.Children.Add(buttonPanel);
 

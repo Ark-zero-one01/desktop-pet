@@ -19,6 +19,9 @@ namespace DesktopPet
         // 设置窗口大小
         public double SettingsWindowWidth { get; set; } = 450; // 设置窗口宽度
         public double SettingsWindowHeight { get; set; } = 500; // 设置窗口高度
+        
+        // 开机自启动
+        public bool AutoStart { get; set; } = false; // 是否开机自启动
 
         private static readonly string ConfigPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
