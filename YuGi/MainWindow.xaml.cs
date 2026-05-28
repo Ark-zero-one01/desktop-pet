@@ -92,15 +92,43 @@ namespace DesktopPet
 
             // 动画完成后，从左边重新开始
             moveX.Completed += (s, e) => 
-            { 
-                // 将宠物移动到屏幕左侧外面
-                this.Left = -this.Width - 50;
-                
-                // 继续向右移动
-                if (config.AutoMove)
+            {
+                // 使用定时器延迟一小段时间，确保动画完全结束
+                var resetTimer = new DispatcherTimer
                 {
-                    StartContinuousRightMovement();
-                }
+                    Interval = TimeSpan.FromMilliseconds(50)
+                };
+                
+                resetTimer.Tick += (ts, te) =>
+                {
+                    resetTimer.Stop();
+                    
+                    // 停止当前动画
+                    this.BeginAnimation(Window.LeftProperty, null);
+                    
+                    // 将宠物移动到屏幕左侧外面
+                    this.Left = -this.Width - 50;
+                    
+                    // 继续向右移动
+                    if (config.AutoMove)
+                    {
+                        // 使用另一个定时器延迟启动新动画
+                        var startTimer = new DispatcherTimer
+                        {
+                            Interval = TimeSpan.FromMilliseconds(50)
+                        };
+                        
+                        startTimer.Tick += (ts2, te2) =>
+                        {
+                            startTimer.Stop();
+                            StartContinuousRightMovement();
+                        };
+                        
+                        startTimer.Start();
+                    }
+                };
+                
+                resetTimer.Start();
             };
 
             this.BeginAnimation(Window.LeftProperty, moveX);
