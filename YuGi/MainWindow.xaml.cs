@@ -15,11 +15,9 @@ namespace DesktopPet
     public partial class MainWindow : Window
     {
         private DispatcherTimer animationTimer = null!;
-        private DispatcherTimer movementTimer = null!;
         private int currentFrame = 0;
         private BitmapImage[] idleFrames = null!;
         private Random random = new Random();
-        private bool isMoving = false;
         private NotifyIcon? trayIcon;
         private PetConfig config = null!;
 
@@ -65,45 +63,43 @@ namespace DesktopPet
 
         private void InitializeMovement()
         {
-            // 每 3-6 秒随机决定是否移动（使用配置）
-            movementTimer = new DispatcherTimer
-            {
-                Interval = TimeSpan.FromSeconds(random.Next(config.MoveIntervalMin, config.MoveIntervalMax))
-            };
-            movementTimer.Tick += MovementTimer_Tick;
-            
-            if (config.AutoMove)
-            {
-                movementTimer.Start();
-            }
+            // 不再使用随机移动定时器，改为循环移动
+            // 如果需要保留随机移动功能，可以通过配置切换
         }
 
         private void StartInitialRightMovement()
         {
-            // 从左下角缓慢向右移动到屏幕右侧
-            isMoving = true;
+            // 开始匀速向右循环移动
+            StartContinuousRightMovement();
+        }
 
+        private void StartContinuousRightMovement()
+        {
+            // 匀速向右移动到屏幕右侧（超出屏幕）
             double screenWidth = SystemParameters.PrimaryScreenWidth;
-            double targetX = screenWidth - this.Width - 10; // 移动到右边，留 10 像素边距
+            double targetX = screenWidth + 50; // 移动到屏幕右侧外面
 
-            // 创建缓慢的向右移动动画（使用配置的持续时间）
+            // 创建匀速向右移动动画（使用配置的持续时间）
             Duration duration = new Duration(TimeSpan.FromSeconds(config.InitialMoveDuration));
 
             DoubleAnimation moveX = new DoubleAnimation
             {
+                From = this.Left,
                 To = targetX,
                 Duration = duration,
-                EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseInOut }
+                EasingFunction = null // 不使用缓动函数，实现匀速移动
             };
 
-            // 动画完成后重置移动状态，并开始随机移动
+            // 动画完成后，从左边重新开始
             moveX.Completed += (s, e) => 
             { 
-                isMoving = false;
-                // 初始移动完成后，如果启用了自动移动，则开始随机移动
-                if (config.AutoMove && !movementTimer.IsEnabled)
+                // 将宠物移动到屏幕左侧外面
+                this.Left = -this.Width - 50;
+                
+                // 继续向右移动
+                if (config.AutoMove)
                 {
-                    movementTimer.Start();
+                    StartContinuousRightMovement();
                 }
             };
 
@@ -131,24 +127,6 @@ namespace DesktopPet
                 var hideItem = new ToolStripMenuItem("隐藏宠物");
                 hideItem.Click += (s, e) => { this.Dispatcher.Invoke(() => { this.Hide(); }); };
                 
-                var toggleMoveItem = new ToolStripMenuItem("自动移动")
-                {
-                    Checked = config.AutoMove,
-                    CheckOnClick = true
-                };
-                toggleMoveItem.Click += (s, e) => 
-                { 
-                    this.Dispatcher.Invoke(() => 
-                    { 
-                        config.AutoMove = toggleMoveItem.Checked;
-                        if (config.AutoMove)
-                            movementTimer.Start();
-                        else
-                            movementTimer.Stop();
-                        config.Save();
-                    }); 
-                };
-                
                 var settingsItem = new ToolStripMenuItem("设置");
                 settingsItem.Click += (s, e) => { this.Dispatcher.Invoke(() => { ShowSettingsDialog(); }); };
                 
@@ -158,7 +136,6 @@ namespace DesktopPet
                 trayMenu.Items.Add(showItem);
                 trayMenu.Items.Add(hideItem);
                 trayMenu.Items.Add(new ToolStripSeparator());
-                trayMenu.Items.Add(toggleMoveItem);
                 trayMenu.Items.Add(settingsItem);
                 trayMenu.Items.Add(new ToolStripSeparator());
                 trayMenu.Items.Add(exitItem);
@@ -200,60 +177,6 @@ namespace DesktopPet
             // 循环播放帧
             currentFrame = (currentFrame + 1) % idleFrames.Length;
             PetImage.Source = idleFrames[currentFrame];
-        }
-
-        private void MovementTimer_Tick(object? sender, EventArgs e)
-        {
-            // 50% 概率移动
-            if (random.Next(0, 2) == 0 && !isMoving)
-            {
-                MoveToRandomPosition();
-            }
-
-            // 重置定时器间隔（使用配置）
-            movementTimer.Interval = TimeSpan.FromSeconds(random.Next(config.MoveIntervalMin, config.MoveIntervalMax));
-        }
-
-        private void MoveToRandomPosition()
-        {
-            isMoving = true;
-
-            // 计算屏幕可用区域
-            double screenWidth = SystemParameters.PrimaryScreenWidth;
-            double screenHeight = SystemParameters.PrimaryScreenHeight;
-
-            // 随机目标位置（留出边距）
-            double targetX = random.Next(0, (int)(screenWidth - this.Width));
-            double targetY = random.Next(0, (int)(screenHeight - this.Height));
-
-            // 边界检测和反弹效果
-            if (targetX < 0) targetX = 10;
-            if (targetY < 0) targetY = 10;
-            if (targetX > screenWidth - this.Width) targetX = screenWidth - this.Width - 10;
-            if (targetY > screenHeight - this.Height) targetY = screenHeight - this.Height - 10;
-
-            // 创建平滑移动动画（使用配置的持续时间）
-            Duration duration = new Duration(TimeSpan.FromSeconds(random.Next(config.RandomMoveDurationMin, config.RandomMoveDurationMax + 1)));
-
-            DoubleAnimation moveX = new DoubleAnimation
-            {
-                To = targetX,
-                Duration = duration,
-                EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseInOut }
-            };
-
-            DoubleAnimation moveY = new DoubleAnimation
-            {
-                To = targetY,
-                Duration = duration,
-                EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseInOut }
-            };
-
-            // 动画完成后重置移动状态
-            moveX.Completed += (s, e) => { isMoving = false; };
-
-            this.BeginAnimation(Window.LeftProperty, moveX);
-            this.BeginAnimation(Window.TopProperty, moveY);
         }
 
         private void Pet_MouseDown(object sender, MouseButtonEventArgs e)
@@ -325,7 +248,6 @@ namespace DesktopPet
                     // 停止自动移动动画
                     this.BeginAnimation(Window.LeftProperty, null);
                     this.BeginAnimation(Window.TopProperty, null);
-                    isMoving = false;
                     
                     // 提示用户可以拖动
                     System.Windows.MessageBox.Show("现在可以拖动宠物了！\n按住左键拖动到想要的位置。", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
