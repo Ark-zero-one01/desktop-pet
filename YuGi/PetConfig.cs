@@ -15,6 +15,10 @@ namespace DesktopPet
         public int InitialMoveDuration { get; set; } = 18; // 初始移动持续时间（秒）
         public int RandomMoveDurationMin { get; set; } = 1; // 随机移动最小持续时间（秒）
         public int RandomMoveDurationMax { get; set; } = 3; // 随机移动最大持续时间（秒）
+        
+        // 设置窗口大小
+        public double SettingsWindowWidth { get; set; } = 450; // 设置窗口宽度
+        public double SettingsWindowHeight { get; set; } = 500; // 设置窗口高度
 
         private static readonly string ConfigPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),

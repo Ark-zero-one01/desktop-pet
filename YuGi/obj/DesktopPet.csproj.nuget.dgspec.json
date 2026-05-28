@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "D:\\privateweb2\\DesktopPet\\DesktopPet.csproj": {}
+    "D:\\privateweb2\\DesktopPet\\YuGi\\DesktopPet.csproj": {}
   },
   "projects": {
-    "D:\\privateweb2\\DesktopPet\\DesktopPet.csproj": {
+    "D:\\privateweb2\\DesktopPet\\YuGi\\DesktopPet.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "D:\\privateweb2\\DesktopPet\\DesktopPet.csproj",
+        "projectUniqueName": "D:\\privateweb2\\DesktopPet\\YuGi\\DesktopPet.csproj",
         "projectName": "DesktopPet",
-        "projectPath": "D:\\privateweb2\\DesktopPet\\DesktopPet.csproj",
+        "projectPath": "D:\\privateweb2\\DesktopPet\\YuGi\\DesktopPet.csproj",
         "packagesPath": "C:\\Users\\Administrator\\.nuget\\packages\\",
-        "outputPath": "D:\\privateweb2\\DesktopPet\\obj\\",
+        "outputPath": "D:\\privateweb2\\DesktopPet\\YuGi\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\Administrator\\AppData\\Roaming\\NuGet\\NuGet.Config"

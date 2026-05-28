@@ -290,10 +290,20 @@ namespace DesktopPet
                 var settingsWindow = new Window
                 {
                     Title = "YuGi 桌面宠物 - 设置",
-                    Width = 450,
-                    Height = 500,
+                    Width = config.SettingsWindowWidth,
+                    Height = config.SettingsWindowHeight,
+                    MinWidth = 400,
+                    MinHeight = 450,
                     WindowStartupLocation = WindowStartupLocation.CenterScreen,
-                    ResizeMode = ResizeMode.NoResize
+                    ResizeMode = ResizeMode.CanResize
+                };
+
+                // 窗口关闭时保存大小
+                settingsWindow.Closing += (s, e) =>
+                {
+                    config.SettingsWindowWidth = settingsWindow.Width;
+                    config.SettingsWindowHeight = settingsWindow.Height;
+                    config.Save();
                 };
 
                 var stackPanel = new System.Windows.Controls.StackPanel
